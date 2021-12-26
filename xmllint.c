@@ -12,27 +12,11 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#if defined (_WIN32) && !defined(__CYGWIN__)
-#if defined (_MSC_VER) || defined(__BORLANDC__)
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
-#define gettimeofday(p1,p2)
-#endif /* _MSC_VER */
-#endif /* _WIN32 */
-
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 #ifdef HAVE_TIME_H
 #include <time.h>
-#endif
-
-#ifdef __MINGW32__
-#define _WINSOCKAPI_
-#include <wsockcompat.h>
-#include <winsock2.h>
-#undef XML_SOCKLEN_T
-#define XML_SOCKLEN_T unsigned int
 #endif
 
 #ifdef HAVE_SYS_TIMEB_H
@@ -830,13 +814,14 @@ xmlShellReadline(char *prompt) {
  *									*
  ************************************************************************/
 
-static int myRead(FILE *f, char * buf, int len) {
-    return(fread(buf, 1, len, f));
+static int myRead(void *f, char *buf, int len) {
+    return(fread(buf, 1, len, (FILE *) f));
 }
-static void myClose(FILE *f) {
-  if (f != stdin) {
-    fclose(f);
-  }
+static int myClose(void *context) {
+    FILE *f = (FILE *) context;
+    if (f == stdin)
+        return(0);
+    return(fclose(f));
 }
 
 /************************************************************************
@@ -2319,14 +2304,11 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 #endif
 		if (f != NULL) {
 		    if (rectxt == NULL)
-			doc = xmlReadIO((xmlInputReadCallback) myRead,
-					(xmlInputCloseCallback) myClose, f,
-					filename, NULL, options);
+			doc = xmlReadIO(myRead, myClose, f, filename, NULL,
+                                        options);
 		    else
-			doc = xmlCtxtReadIO(rectxt,
-			                (xmlInputReadCallback) myRead,
-					(xmlInputCloseCallback) myClose, f,
-					filename, NULL, options);
+			doc = xmlCtxtReadIO(rectxt, myRead, myClose, f,
+					    filename, NULL, options);
 		} else
 		    doc = NULL;
 	    }
@@ -3033,7 +3015,7 @@ static void usage(FILE *f, const char *name) {
     fprintf(f, "\t--repeat : repeat 100 times, for timing or profiling\n");
     fprintf(f, "\t--insert : ad-hoc test for valid insertions\n");
 #ifdef LIBXML_OUTPUT_ENABLED
-#ifdef HAVE_ZLIB_H
+#ifdef LIBXML_ZLIB_ENABLED
     fprintf(f, "\t--compress : turn on gzip compression of output\n");
 #endif
 #endif /* LIBXML_OUTPUT_ENABLED */
@@ -3313,7 +3295,7 @@ main(int argc, char **argv) {
 	}
 #endif
 #ifdef LIBXML_OUTPUT_ENABLED
-#ifdef HAVE_ZLIB_H
+#ifdef LIBXML_ZLIB_ENABLED
 	else if ((!strcmp(argv[i], "-compress")) ||
 	         (!strcmp(argv[i], "--compress"))) {
 	    compress++;

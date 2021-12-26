@@ -14,6 +14,11 @@
  * daniel@veillard.com
  */
 
+/* To avoid EBCDIC trouble when parsing on zOS */
+#if defined(__MVS__)
+#pragma convert("ISO8859-1")
+#endif
+
 #define IN_LIBXML
 #include "libxml.h"
 
@@ -461,8 +466,6 @@ xmlXPtrNewRangeNodePoint(xmlNodePtr start, xmlXPathObjectPtr end) {
     if (start == NULL)
 	return(NULL);
     if (end == NULL)
-	return(NULL);
-    if (start->type != XPATH_POINT)
 	return(NULL);
     if (end->type != XPATH_POINT)
 	return(NULL);
